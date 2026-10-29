@@ -1,0 +1,12 @@
+# Backend
+/backend/.env
+/backend/url-shortener.exe
+/backend/url-shortener
+
+# Frontend (Mencegah upload jutaan file dependensi)
+/frontend/node_modules
+/frontend/dist
+
+# File Sistem Operasi
+.DS_Store
+Thumbs.db
