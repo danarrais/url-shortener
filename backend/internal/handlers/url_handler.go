@@ -2,11 +2,24 @@ package handlers
 
 import(
 	"encoding/json"
+	"errors"
+	"log"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"backend/internal/models"
 	"backend/internal/repository"
 	"backend/internal/utils"
+)
+
+const (
+	// maxBodyBytes membatasi ukuran body request agar tidak bisa dipakai
+	// untuk menghabiskan memori server.
+	maxBodyBytes = 1 << 20 // 1 MB
+
+	// maxURLLength adalah batas panjang URL yang wajar (batas praktis browser).
+	maxURLLength = 2048
 )
 
 // URLHandler menyimpan 'koki' (repository) agar bisa menyuruhnya memasak data
@@ -21,38 +34,66 @@ func NewURLHandler(repo *repository.URLRepository) *URLHandler {
 
 // ShortenURL bertugas menerima URL panjang dan membalas URL pendek (POST)
 func (h *URLHandler) ShortenURL(w http.ResponseWriter, r *http.Request) {
-	// 1. Baca input JSON dari user (React)
+	// 1. Batasi ukuran body, lalu baca input JSON dari user (React)
 	ctx := r.Context()
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 
 	var req models.ShortenRequest
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&req); err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			http.Error(w, "Body request terlalu besar", http.StatusRequestEntityTooLarge)
+			return
+		}
 		http.Error(w, "Format JSON tidak valid", http.StatusBadRequest)
 		return
 	}
 
-	// 2. Buat kode unik 6 karakter menggunakan utils
+	// 2. Validasi URL: tidak kosong, tidak kepanjangan, dan benar-benar URL
+	longURL := strings.TrimSpace(req.LongURL)
+	if longURL == "" || len(longURL) > maxURLLength {
+		http.Error(w, "URL tidak valid", http.StatusBadRequest)
+		return
+	}
+
+	parsed, err := url.ParseRequestURI(longURL)
+	if err != nil || parsed.Host == "" {
+		http.Error(w, "URL tidak valid", http.StatusBadRequest)
+		return
+	}
+
+	// Hanya izinkan http/https. Tanpa ini, skema seperti "javascript:" bisa
+	// tersimpan dan ikut terkirim sebagai header Location saat redirect.
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		http.Error(w, "Hanya URL http dan https yang diizinkan", http.StatusBadRequest)
+		return
+	}
+
+	// 3. Buat kode unik 6 karakter menggunakan utils
 	shortCode := utils.GenerateShortCode(6)
 
-	// 3. Siapkan data untuk disimpan ke database
+	// 4. Siapkan data untuk disimpan ke database (pakai URL yang sudah di-trim)
 	newURL := models.URL{
-		LongURL: req.LongURL,
+		LongURL: longURL,
 		ShortCode: shortCode,
 	}
 
-	// 4. Simpan ke database melalui koki (Repository)
+	// 5. Simpan ke database melalui koki (Repository)
 	err = h.Repo.Create(ctx, &newURL)
 	if err != nil {
+		log.Printf("ShortenURL: gagal menyimpan URL: %v", err)
 		http.Error(w, "Gagal menyimpan ke database", http.StatusInternalServerError)
 		return
 	}
 
-	// 5. Siapkan balasan sukses
+	// 6. Siapkan balasan sukses
 	res := models.ShortenResponse {
 		ShortURL: "http://localhost:8000/" + shortCode,
 	}
 
-	// 6. Kirim balasan JSON ke user
+	// 7. Kirim balasan JSON ke user
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(res)
 }
@@ -66,8 +107,13 @@ func (h *URLHandler) Redirect(w http.ResponseWriter, r *http.Request) {
 
 	// 2. Cari data aslinya di database
 	urlData, err := h.Repo.FindByShortCode(ctx, shortCode)
-	if err != nil {
+	if errors.Is(err, repository.ErrNotFound) {
 		http.Error(w, "URL tidak ditemukan", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		log.Printf("Redirect: gagal mencari short code %q: %v", shortCode, err)
+		http.Error(w, "Terjadi kesalahan pada server", http.StatusInternalServerError)
 		return
 	}
 
@@ -82,8 +128,13 @@ func (h *URLHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	shortCode := r.PathValue("short_code")
 
 	urlData, err := h.Repo.FindByShortCode(ctx, shortCode)
-	if err != nil {
+	if errors.Is(err, repository.ErrNotFound) {
 		http.Error(w, "URL tidak ditemukan", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		log.Printf("GetStats: gagal mencari short code %q: %v", shortCode, err)
+		http.Error(w, "Terjadi kesalahan pada server", http.StatusInternalServerError)
 		return
 	}
 
