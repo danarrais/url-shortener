@@ -1,38 +1,45 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"backend/internal/config"
 	"backend/internal/handlers"
+	"backend/internal/middleware"
 	"backend/internal/models"
 	"backend/internal/repository"
 )
 
 func main() {
-	fmt.Println("Memulai aplikasi...")
-
 	// 1. Baca seluruh konfigurasi sekali di awal
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("konfigurasi tidak valid", "error", err)
+		os.Exit(1)
 	}
 
 	// 2. Koneksi Database
 	db, err := config.ConnectDB(cfg)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("gagal terhubung ke database", "error", err)
+		os.Exit(1)
 	}
-	fmt.Println("Berhasil terhubung ke Database PostgreSQL!")
+	slog.Info("terhubung ke database", "host", cfg.DBHost, "database", cfg.DBName)
 
 	// 3. Auto-Migrate Tabel
-	err = db.AutoMigrate(&models.URL{})
-	if err != nil {
-		log.Fatal("Gagal menjalankan migrasi database: ", err)
+	if err := db.AutoMigrate(&models.URL{}); err != nil {
+		slog.Error("gagal menjalankan migrasi database", "error", err)
+		os.Exit(1)
 	}
-	fmt.Println("Migrasi tabel 'urls' berhasil!")
+	slog.Info("migrasi tabel berhasil", "tabel", "urls")
 
 	// 4. DEPENDENCY INJECTION (Menyambungkan komponen)
 	// Kita suntikkan 'db' ke dalam koki (Repo)
@@ -57,28 +64,39 @@ func main() {
 	// Rute GET untuk redirect (menggunakan fitur Path Parameter Go 1.22)
 	mux.HandleFunc("GET /{short_code}", urlHandler.Redirect)
 
-	// 7. Nyalakan Server
-	fmt.Printf("Server menyala di %s\n", cfg.BaseURL)
-	err = http.ListenAndServe(":"+cfg.Port, enableCORS(mux, cfg.AllowedOrigin))
-	if err != nil {
-		log.Fatal("Gagal menyalakan server:", err)
+	// 7. Server dengan batas waktu: tanpa timeout, koneksi yang menggantung
+	// (slowloris) bisa menahan goroutine dan memori server tanpa batas.
+	srv := &http.Server{
+		Addr:              ":" + cfg.Port,
+		Handler:           middleware.CORS(cfg.AllowedOrigin)(mux),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
-}
 
-func enableCORS(next http.Handler, allowedOrigin string) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// Ctrl+C atau SIGTERM membatalkan ctx, bukan mematikan proses seketika.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
-		// Memberikan izin masuk kepada aplikasi React
-		w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
-		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-		// Menangani "preflight request" (ketukan pintu awal dari browser)
-		if r.Method == "OPTIONS" {
-			w.WriteHeader(http.StatusOK)
-			return
+	go func() {
+		slog.Info("server menyala", "alamat", cfg.BaseURL)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			slog.Error("server berhenti karena error", "error", err)
+			stop()
 		}
+	}()
 
-		next.ServeHTTP(w, r)
-	})
+	<-ctx.Done()
+	slog.Info("sinyal berhenti diterima, menutup server")
+
+	// Beri request yang sedang berjalan waktu 10 detik untuk selesai.
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		slog.Error("gagal menutup server dengan rapi", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("server berhenti dengan rapi")
 }
