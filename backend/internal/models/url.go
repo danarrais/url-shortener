@@ -1,11 +1,11 @@
 package models
 
-import(
+import (
 	"time"
 )
 
-type URL struct{
-	ID  	  uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+type URL struct {
+	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	ShortCode string    `gorm:"type:varchar(10);uniqueIndex;not null" json:"short_code"`
 	LongURL   string    `gorm:"type:text;not null" json:"long_url"`
 	Clicks    int       `gorm:"type:int;default:0" json:"clicks"`

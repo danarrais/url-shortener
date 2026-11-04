@@ -47,7 +47,7 @@ func main() {
 	mux.HandleFunc("POST /shorten", urlHandler.ShortenURL)
 
 	mux.HandleFunc("GET /stats/{short_code}", urlHandler.GetStats)
-	
+
 	// Rute GET untuk redirect (menggunakan fitur Path Parameter Go 1.22)
 	mux.HandleFunc("GET /{short_code}", urlHandler.Redirect)
 
