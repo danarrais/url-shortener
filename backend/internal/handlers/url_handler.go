@@ -1,6 +1,6 @@
 package handlers
 
-import(
+import (
 	"encoding/json"
 	"errors"
 	"log"
@@ -76,7 +76,7 @@ func (h *URLHandler) ShortenURL(w http.ResponseWriter, r *http.Request) {
 
 	// 4. Siapkan data untuk disimpan ke database (pakai URL yang sudah di-trim)
 	newURL := models.URL{
-		LongURL: longURL,
+		LongURL:   longURL,
 		ShortCode: shortCode,
 	}
 
@@ -89,7 +89,7 @@ func (h *URLHandler) ShortenURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 6. Siapkan balasan sukses
-	res := models.ShortenResponse {
+	res := models.ShortenResponse{
 		ShortURL: "http://localhost:8000/" + shortCode,
 	}
 
@@ -120,6 +120,8 @@ func (h *URLHandler) Redirect(w http.ResponseWriter, r *http.Request) {
 	// 3. Lempar (Redirect) user ke URL asli
 	_ = h.Repo.IncrementClicks(ctx, shortCode)
 
+	// 302 (Found), bukan 301: 301 di-cache permanen oleh browser, sehingga
+	// klik berikutnya tidak sampai ke server dan statistik tidak akurat.
 	http.Redirect(w, r, urlData.LongURL, http.StatusFound)
 }
 

@@ -12,7 +12,7 @@ export default function FeaturesFooter() {
         </span>
       </div>
       <span className="font-mono text-[11px] text-zinc-400 bg-zinc-100/80 px-2 py-0.5 rounded border border-zinc-200/60">
-        HTTP 301/307
+        HTTP 302
       </span>
     </div>
   )
