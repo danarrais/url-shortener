@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log"
@@ -22,13 +23,22 @@ const (
 	maxURLLength = 2048
 )
 
+// URLStore adalah kontrak data yang dibutuhkan handler. Interface ditulis di
+// package handlers agar handler tidak terikat pada GORM dan bisa diuji dengan
+// implementasi palsu tanpa database.
+type URLStore interface {
+	Create(ctx context.Context, url *models.URL) error
+	FindByShortCode(ctx context.Context, shortCode string) (*models.URL, error)
+	IncrementClicks(ctx context.Context, shortCode string) error
+}
+
 // URLHandler menyimpan 'koki' (repository) agar bisa menyuruhnya memasak data
 type URLHandler struct {
-	Repo *repository.URLRepository
+	Repo URLStore
 }
 
 // NewURLHandler adalah fungsi untuk membuat pelayan baru
-func NewURLHandler(repo *repository.URLRepository) *URLHandler {
+func NewURLHandler(repo URLStore) *URLHandler {
 	return &URLHandler{Repo: repo}
 }
 
