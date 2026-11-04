@@ -22,13 +22,13 @@ func NewURLRepository(db *gorm.DB) *URLRepository {
 }
 
 func (r *URLRepository) Create(ctx context.Context, url *models.URL) error {
-	return r.DB.Create(url).Error
+	return r.DB.WithContext(ctx).Create(url).Error
 }
 
 func (r *URLRepository) FindByShortCode(ctx context.Context, shortCode string) (*models.URL, error) {
 	var url models.URL
 
-	err := r.DB.Where("short_code = ? ", shortCode).First(&url).Error
+	err := r.DB.WithContext(ctx).Where("short_code = ?", shortCode).First(&url).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, ErrNotFound
 	}
