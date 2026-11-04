@@ -10,6 +10,11 @@ import StatsResultCard from './components/StatsResultCard'
 import { useShorten } from './hooks/useShorten'
 import { useStats } from './hooks/useStats'
 
+const TABS = [
+  { id: 'shorten', label: 'Pendekkan' },
+  { id: 'stats', label: 'Statistik' },
+]
+
 function App() {
   const [activeTab, setActiveTab] = useState('shorten')
   const shorten = useShorten()
@@ -39,55 +44,65 @@ function App() {
           <div className="absolute inset-x-8 -top-px h-px bg-gradient-to-r from-transparent via-indigo-500/40 to-transparent" />
 
           {/* Tab Navigation Menu */}
-          <div className="flex p-1.5 border-b border-zinc-100 bg-zinc-50/50 rounded-t-xl">
-            <button
-              onClick={() => switchTab('shorten')}
-              className={`flex-1 py-2 px-3 text-sm font-medium rounded-lg transition-all ${activeTab === 'shorten' ? 'bg-white text-zinc-900 shadow-sm border border-zinc-200/50' : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100/50 border border-transparent'}`}
-            >
-              Pendekkan
-            </button>
-            <button
-              onClick={() => switchTab('stats')}
-              className={`flex-1 py-2 px-3 text-sm font-medium rounded-lg transition-all ${activeTab === 'stats' ? 'bg-white text-zinc-900 shadow-sm border border-zinc-200/50' : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100/50 border border-transparent'}`}
-            >
-              Statistik
-            </button>
+          <div
+            role="tablist"
+            aria-label="Mode aplikasi"
+            className="flex p-1.5 border-b border-zinc-100 bg-zinc-50/50 rounded-t-xl"
+          >
+            {TABS.map(({ id, label }) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                id={`tab-${id}`}
+                aria-selected={activeTab === id}
+                aria-controls={`panel-${id}`}
+                onClick={() => switchTab(id)}
+                className={`flex-1 py-2 px-3 text-sm font-medium rounded-lg transition-all ${activeTab === id ? 'bg-white text-zinc-900 shadow-sm border border-zinc-200/50' : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100/50 border border-transparent'}`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
           {/* Tab Content */}
           <div className="p-2">
-            {activeTab === 'shorten' && (
-              <>
-                <UrlForm
-                  longUrl={shorten.longUrl}
-                  setLongUrl={shorten.setLongUrl}
-                  onSubmit={shorten.submit}
-                  isLoading={shorten.isLoading}
-                  onClearError={() => shorten.setError('')}
-                  onPasteError={() => shorten.setError('Izin clipboard ditolak oleh browser.')}
-                />
-                <ErrorAlert message={shorten.error} />
-                <ResultCard shortUrl={shorten.shortUrl} />
-              </>
-            )}
+            <div
+              role="tabpanel"
+              id="panel-shorten"
+              aria-labelledby="tab-shorten"
+              hidden={activeTab !== 'shorten'}
+            >
+              <UrlForm
+                longUrl={shorten.longUrl}
+                setLongUrl={shorten.setLongUrl}
+                onSubmit={shorten.submit}
+                isLoading={shorten.isLoading}
+                onClearError={() => shorten.setError('')}
+                onPasteError={() => shorten.setError('Izin clipboard ditolak oleh browser.')}
+              />
+              <ErrorAlert message={shorten.error} />
+              <ResultCard shortUrl={shorten.shortUrl} />
+            </div>
 
-            {activeTab === 'stats' && (
-              <>
-                <StatsForm
-                  statsInput={stats.input}
-                  setStatsInput={stats.setInput}
-                  onSubmit={stats.submit}
-                  isLoading={stats.isLoading}
-                  onClearError={() => stats.setError('')}
-                />
-                <ErrorAlert message={stats.error} />
-                <StatsResultCard statsData={stats.data} />
-              </>
-            )}
+            <div
+              role="tabpanel"
+              id="panel-stats"
+              aria-labelledby="tab-stats"
+              hidden={activeTab !== 'stats'}
+            >
+              <StatsForm
+                statsInput={stats.input}
+                setStatsInput={stats.setInput}
+                onSubmit={stats.submit}
+                isLoading={stats.isLoading}
+                onClearError={() => stats.setError('')}
+              />
+              <ErrorAlert message={stats.error} />
+              <StatsResultCard statsData={stats.data} />
+            </div>
           </div>
-
         </section>
-
         <FeaturesFooter />
       </main>
     </div>

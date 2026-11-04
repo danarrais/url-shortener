@@ -55,6 +55,7 @@ export default function ResultCard({ shortUrl }) {
             href={shortUrl}
             target="_blank"
             rel="noopener noreferrer"
+            aria-label="Buka tautan pendek di tab baru"
             className="inline-flex items-center justify-center w-8 h-8 bg-white border border-zinc-200/90 hover:border-indigo-300 rounded-md text-zinc-600 hover:text-indigo-600 transition-colors shadow-2xs"
             title="Buka di tab baru"
           >

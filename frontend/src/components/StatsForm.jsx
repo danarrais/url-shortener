@@ -33,6 +33,7 @@ export default function StatsForm({
         <input
           ref={inputRef}
           type="text"
+          aria-label="Kode atau tautan pendek"
           className="w-full border-none bg-transparent py-3 text-[14.5px] text-zinc-900 placeholder:text-zinc-400 focus:outline-none"
           placeholder="Masukkan kode atau link pendek (misal: ClJBRq)..."
           value={statsInput}
@@ -48,6 +49,7 @@ export default function StatsForm({
             <button
               type="button"
               onClick={handleClear}
+              aria-label="Bersihkan input kode"
               className="bg-white border border-zinc-200 hover:border-zinc-300 text-zinc-500 hover:text-zinc-800 font-mono text-[11px] px-2 py-1 rounded transition-colors cursor-pointer"
               title="Bersihkan input"
             >
@@ -57,6 +59,7 @@ export default function StatsForm({
             <button
               type="button"
               onClick={handlePaste}
+              aria-label="Tempel kode dari clipboard"
               className="bg-white border border-zinc-200 hover:border-indigo-200 hover:bg-indigo-50/40 text-zinc-600 hover:text-indigo-700 font-mono text-[11px] px-2 py-1 rounded transition-colors cursor-pointer"
               title="Tempel dari clipboard"
             >
@@ -73,8 +76,13 @@ export default function StatsForm({
       >
         {isLoading ? (
           <>
-            <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            <span>Mencari</span>
+            <span
+              role="status"
+              className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"
+            >
+              <span className="sr-only">Mencari.</span>
+            </span>
+            <span aria-hidden="true">Mencari</span>
           </>
         ) : (
           <>
