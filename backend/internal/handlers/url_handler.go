@@ -44,30 +44,30 @@ func (h *URLHandler) ShortenURL(w http.ResponseWriter, r *http.Request) {
 	if err := dec.Decode(&req); err != nil {
 		var tooLarge *http.MaxBytesError
 		if errors.As(err, &tooLarge) {
-			http.Error(w, "Body request terlalu besar", http.StatusRequestEntityTooLarge)
+			writeError(w, http.StatusRequestEntityTooLarge, "Body request terlalu besar")
 			return
 		}
-		http.Error(w, "Format JSON tidak valid", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "Format JSON tidak valid")
 		return
 	}
 
 	// 2. Validasi URL: tidak kosong, tidak kepanjangan, dan benar-benar URL
 	longURL := strings.TrimSpace(req.LongURL)
 	if longURL == "" || len(longURL) > maxURLLength {
-		http.Error(w, "URL tidak valid", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "URL tidak valid")
 		return
 	}
 
 	parsed, err := url.ParseRequestURI(longURL)
 	if err != nil || parsed.Host == "" {
-		http.Error(w, "URL tidak valid", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "URL tidak valid")
 		return
 	}
 
 	// Hanya izinkan http/https. Tanpa ini, skema seperti "javascript:" bisa
 	// tersimpan dan ikut terkirim sebagai header Location saat redirect.
 	if parsed.Scheme != "http" && parsed.Scheme != "https" {
-		http.Error(w, "Hanya URL http dan https yang diizinkan", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "Hanya URL http dan https yang diizinkan")
 		return
 	}
 
@@ -84,7 +84,7 @@ func (h *URLHandler) ShortenURL(w http.ResponseWriter, r *http.Request) {
 	err = h.Repo.Create(ctx, &newURL)
 	if err != nil {
 		log.Printf("ShortenURL: gagal menyimpan URL: %v", err)
-		http.Error(w, "Gagal menyimpan ke database", http.StatusInternalServerError)
+		writeError(w, http.StatusInternalServerError, "Gagal menyimpan ke database")
 		return
 	}
 
@@ -94,8 +94,7 @@ func (h *URLHandler) ShortenURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 7. Kirim balasan JSON ke user
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(res)
+	writeJSON(w, http.StatusOK, res)
 }
 
 // Redirect bertugas menangkap klik URL pendek dan melempar user ke URL asli (GET)
@@ -108,12 +107,12 @@ func (h *URLHandler) Redirect(w http.ResponseWriter, r *http.Request) {
 	// 2. Cari data aslinya di database
 	urlData, err := h.Repo.FindByShortCode(ctx, shortCode)
 	if errors.Is(err, repository.ErrNotFound) {
-		http.Error(w, "URL tidak ditemukan", http.StatusNotFound)
+		writeError(w, http.StatusNotFound, "URL tidak ditemukan")
 		return
 	}
 	if err != nil {
 		log.Printf("Redirect: gagal mencari short code %q: %v", shortCode, err)
-		http.Error(w, "Terjadi kesalahan pada server", http.StatusInternalServerError)
+		writeError(w, http.StatusInternalServerError, "Terjadi kesalahan pada server")
 		return
 	}
 
@@ -131,21 +130,20 @@ func (h *URLHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 
 	urlData, err := h.Repo.FindByShortCode(ctx, shortCode)
 	if errors.Is(err, repository.ErrNotFound) {
-		http.Error(w, "URL tidak ditemukan", http.StatusNotFound)
+		writeError(w, http.StatusNotFound, "URL tidak ditemukan")
 		return
 	}
 	if err != nil {
 		log.Printf("GetStats: gagal mencari short code %q: %v", shortCode, err)
-		http.Error(w, "Terjadi kesalahan pada server", http.StatusInternalServerError)
+		writeError(w, http.StatusInternalServerError, "Terjadi kesalahan pada server")
 		return
 	}
 
-	stats := map[string]interface{}{
-		"short_code": urlData.ShortCode,
-		"long_url":   urlData.LongURL,
-		"clicks":     urlData.Clicks,
+	stats := models.StatsResponse{
+		ShortCode: urlData.ShortCode,
+		LongURL:   urlData.LongURL,
+		Clicks:    urlData.Clicks,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(stats)
+	writeJSON(w, http.StatusOK, stats)
 }

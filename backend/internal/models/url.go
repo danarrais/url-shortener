@@ -19,3 +19,9 @@ type ShortenRequest struct {
 type ShortenResponse struct {
 	ShortURL string `json:"short_url"`
 }
+
+type StatsResponse struct {
+	ShortCode string `json:"short_code"`
+	LongURL   string `json:"long_url"`
+	Clicks    int    `json:"clicks"`
+}
