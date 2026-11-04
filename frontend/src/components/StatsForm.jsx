@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { BarChart3, ArrowRight } from 'lucide-react'
+import { readClipboard } from '../lib/clipboard'
 
 export default function StatsForm({
   statsInput,
@@ -11,16 +12,11 @@ export default function StatsForm({
   const inputRef = useRef(null)
 
   const handlePaste = async () => {
-    try {
-      const text = await navigator.clipboard.readText()
-      if (text) {
-        setStatsInput(text)
-        if (onClearError) onClearError()
-        inputRef.current?.focus()
-      }
-    } catch {
-      // Izin clipboard ditolak atau tidak didukung
-    }
+    const text = await readClipboard()
+    if (!text) return
+    setStatsInput(text)
+    if (onClearError) onClearError()
+    inputRef.current?.focus()
   }
 
   const handleClear = () => {

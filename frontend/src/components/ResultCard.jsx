@@ -1,6 +1,9 @@
 import { Check, Copy, ExternalLink } from 'lucide-react'
+import { useClipboard } from '../hooks/useClipboard'
 
-export default function ResultCard({ shortUrl, copied, onCopy }) {
+export default function ResultCard({ shortUrl }) {
+  const { copied, copy } = useClipboard()
+
   if (!shortUrl) return null
 
   return (
@@ -28,7 +31,7 @@ export default function ResultCard({ shortUrl, copied, onCopy }) {
         <div className="flex items-center gap-1.5">
           <button
             type="button"
-            onClick={() => onCopy(shortUrl)}
+            onClick={() => copy(shortUrl)}
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 border rounded-md text-[13px] font-medium transition-all cursor-pointer ${
               copied
                 ? 'border-emerald-500 text-emerald-700 bg-emerald-50'

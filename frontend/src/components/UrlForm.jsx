@@ -1,14 +1,34 @@
+import { useRef } from 'react'
 import { Link, ArrowRight } from 'lucide-react'
+import { readClipboard } from '../lib/clipboard'
 
 export default function UrlForm({
   longUrl,
   setLongUrl,
   onSubmit,
-  onPaste,
   isLoading,
-  inputRef,
   onClearError,
+  onPasteError,
 }) {
+  const inputRef = useRef(null)
+
+  const handlePaste = async () => {
+    const text = await readClipboard()
+    if (!text) {
+      if (onPasteError) onPasteError()
+      return
+    }
+    setLongUrl(text)
+    if (onClearError) onClearError()
+    inputRef.current?.focus()
+  }
+
+  const handleClear = () => {
+    setLongUrl('')
+    if (onClearError) onClearError()
+    inputRef.current?.focus()
+  }
+
   return (
     <form onSubmit={onSubmit} className="flex flex-col sm:flex-row gap-2 items-stretch">
       <div className="group flex-1 flex items-center gap-2.5 px-3 bg-zinc-50/70 border border-zinc-200/90 rounded-lg focus-within:bg-white focus-within:border-indigo-500 focus-within:ring-3 focus-within:ring-indigo-500/10 transition-all">
@@ -31,7 +51,7 @@ export default function UrlForm({
           {longUrl ? (
             <button
               type="button"
-              onClick={() => setLongUrl('')}
+              onClick={handleClear}
               className="bg-white border border-zinc-200 hover:border-zinc-300 text-zinc-500 hover:text-zinc-800 font-mono text-[11px] px-2 py-1 rounded transition-colors cursor-pointer"
               title="Bersihkan input"
             >
@@ -40,7 +60,7 @@ export default function UrlForm({
           ) : (
             <button
               type="button"
-              onClick={onPaste}
+              onClick={handlePaste}
               className="bg-white border border-zinc-200 hover:border-indigo-200 hover:bg-indigo-50/40 text-zinc-600 hover:text-indigo-700 font-mono text-[11px] px-2 py-1 rounded transition-colors cursor-pointer"
               title="Tempel dari clipboard"
             >

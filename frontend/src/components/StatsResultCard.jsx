@@ -1,20 +1,10 @@
-import { useState } from 'react'
 import { BarChart3, MousePointerClick, Link as LinkIcon, Copy, Check, ExternalLink } from 'lucide-react'
+import { useClipboard } from '../hooks/useClipboard'
 
 export default function StatsResultCard({ statsData }) {
-  const [copied, setCopied] = useState(false)
+  const { copied, copy } = useClipboard()
 
   if (!statsData) return null
-
-  const handleCopy = async (text) => {
-    try {
-      await navigator.clipboard.writeText(text)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch (err) {
-      console.error('Gagal menyalin:', err)
-    }
-  }
 
   return (
     <div className="mt-2 p-4 bg-gradient-to-br from-indigo-50/40 via-zinc-50/60 to-sky-50/30 border border-indigo-200/70 rounded-lg">
@@ -90,7 +80,7 @@ export default function StatsResultCard({ statsData }) {
           <div className="flex items-center gap-1.5 shrink-0">
             <button
               type="button"
-              onClick={() => handleCopy(statsData.long_url)}
+              onClick={() => copy(statsData.long_url)}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 border rounded-md text-[13px] font-medium transition-all cursor-pointer ${
                 copied
                   ? 'border-emerald-500 text-emerald-700 bg-emerald-50'
