@@ -14,31 +14,37 @@ import (
 func main() {
 	fmt.Println("Memulai aplikasi...")
 
-	// 1. Koneksi Database
-	db, err := config.ConnectDB()
+	// 1. Baca seluruh konfigurasi sekali di awal
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// 2. Koneksi Database
+	db, err := config.ConnectDB(cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println("Berhasil terhubung ke Database PostgreSQL!")
 
-	// 2. Auto-Migrate Tabel
+	// 3. Auto-Migrate Tabel
 	err = db.AutoMigrate(&models.URL{})
 	if err != nil {
-		log.Fatal("Gagal menemukan migrasi database", err)
+		log.Fatal("Gagal menjalankan migrasi database: ", err)
 	}
 	fmt.Println("Migrasi tabel 'urls' berhasil!")
 
-	// 3. DEPENDENCY INJECTION (Menyambungkan komponen)
+	// 4. DEPENDENCY INJECTION (Menyambungkan komponen)
 	// Kita suntikkan 'db' ke dalam koki (Repo)
 	urlRepo := repository.NewURLRepository(db)
 
 	// Lalu koki (Repo) disuntikkan ke dalam pelayan (Handler)
-	urlHandler := handlers.NewURLHandler(urlRepo)
+	urlHandler := handlers.NewURLHandler(urlRepo, cfg.BaseURL)
 
-	// 4. Siapkan Router (Mux)
+	// 5. Siapkan Router (Mux)
 	mux := http.NewServeMux()
 
-	// 5. Daftarkan Rute API
+	// 6. Daftarkan Rute API
 	mux.HandleFunc("GET /ping", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "Server URL Shortener siap menerima perintah!")
 	})
@@ -51,19 +57,19 @@ func main() {
 	// Rute GET untuk redirect (menggunakan fitur Path Parameter Go 1.22)
 	mux.HandleFunc("GET /{short_code}", urlHandler.Redirect)
 
-	// 6. Nyalakan Server
-	fmt.Println("Server menyala di http://localhost:8000")
-	err = http.ListenAndServe(":8000", enableCORS(mux))
+	// 7. Nyalakan Server
+	fmt.Printf("Server menyala di %s\n", cfg.BaseURL)
+	err = http.ListenAndServe(":"+cfg.Port, enableCORS(mux, cfg.AllowedOrigin))
 	if err != nil {
 		log.Fatal("Gagal menyalakan server:", err)
 	}
 }
 
-func enableCORS(next http.Handler) http.Handler {
+func enableCORS(next http.Handler, allowedOrigin string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		// Memberikan izin masuk kepada aplikasi React
-		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+		w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
 		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 

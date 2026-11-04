@@ -13,6 +13,9 @@ import (
 	"backend/internal/repository"
 )
 
+// testBaseURL meniru nilai BASE_URL dari konfigurasi produksi.
+const testBaseURL = "http://localhost:8000"
+
 // fakeStore menggantikan repository.URLRepository agar handler dapat diuji
 // tanpa database. Field disetel per test sesuai skenario.
 type fakeStore struct {
@@ -65,7 +68,7 @@ func assertError(t *testing.T, rec *httptest.ResponseRecorder, want int) {
 
 func TestShortenURLSuccess(t *testing.T) {
 	store := &fakeStore{}
-	handler := NewURLHandler(store)
+	handler := NewURLHandler(store, testBaseURL)
 
 	req := httptest.NewRequest(http.MethodPost, "/shorten", strings.NewReader(`{"long_url":"  https://example.com/halaman  "}`))
 	rec := httptest.NewRecorder()
@@ -83,6 +86,9 @@ func TestShortenURLSuccess(t *testing.T) {
 	if res.ShortURL == "" {
 		t.Fatal("short_url kosong")
 	}
+	if want := testBaseURL + "/"; !strings.HasPrefix(res.ShortURL, want) {
+		t.Fatalf("short_url = %q, mau diawali %q", res.ShortURL, want)
+	}
 	if store.created == nil {
 		t.Fatal("repository tidak pernah menerima data")
 	}
@@ -92,7 +98,7 @@ func TestShortenURLSuccess(t *testing.T) {
 }
 
 func TestShortenURLInvalidJSON(t *testing.T) {
-	handler := NewURLHandler(&fakeStore{})
+	handler := NewURLHandler(&fakeStore{}, testBaseURL)
 
 	req := httptest.NewRequest(http.MethodPost, "/shorten", strings.NewReader(`{"long_url":`))
 	rec := httptest.NewRecorder()
@@ -104,7 +110,7 @@ func TestShortenURLInvalidJSON(t *testing.T) {
 
 func TestShortenURLCreateError(t *testing.T) {
 	store := &fakeStore{createErr: errors.New("koneksi database putus")}
-	handler := NewURLHandler(store)
+	handler := NewURLHandler(store, testBaseURL)
 
 	req := httptest.NewRequest(http.MethodPost, "/shorten", strings.NewReader(`{"long_url":"https://example.com"}`))
 	rec := httptest.NewRecorder()
@@ -116,7 +122,7 @@ func TestShortenURLCreateError(t *testing.T) {
 
 func TestRedirectFound(t *testing.T) {
 	store := &fakeStore{data: &models.URL{ShortCode: "abc123", LongURL: "https://example.com/tujuan"}}
-	handler := NewURLHandler(store)
+	handler := NewURLHandler(store, testBaseURL)
 
 	req := httptest.NewRequest(http.MethodGet, "/abc123", nil)
 	req.SetPathValue("short_code", "abc123")
@@ -136,7 +142,7 @@ func TestRedirectFound(t *testing.T) {
 }
 
 func TestRedirectNotFound(t *testing.T) {
-	handler := NewURLHandler(&fakeStore{findErr: repository.ErrNotFound})
+	handler := NewURLHandler(&fakeStore{findErr: repository.ErrNotFound}, testBaseURL)
 
 	req := httptest.NewRequest(http.MethodGet, "/zzzzzz", nil)
 	req.SetPathValue("short_code", "zzzzzz")
@@ -149,7 +155,7 @@ func TestRedirectNotFound(t *testing.T) {
 
 func TestGetStatsOK(t *testing.T) {
 	store := &fakeStore{data: &models.URL{ShortCode: "abc123", LongURL: "https://example.com", Clicks: 7}}
-	handler := NewURLHandler(store)
+	handler := NewURLHandler(store, testBaseURL)
 
 	req := httptest.NewRequest(http.MethodGet, "/stats/abc123", nil)
 	req.SetPathValue("short_code", "abc123")

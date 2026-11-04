@@ -34,12 +34,13 @@ type URLStore interface {
 
 // URLHandler menyimpan 'koki' (repository) agar bisa menyuruhnya memasak data
 type URLHandler struct {
-	Repo URLStore
+	Repo    URLStore
+	BaseURL string
 }
 
 // NewURLHandler adalah fungsi untuk membuat pelayan baru
-func NewURLHandler(repo URLStore) *URLHandler {
-	return &URLHandler{Repo: repo}
+func NewURLHandler(repo URLStore, baseURL string) *URLHandler {
+	return &URLHandler{Repo: repo, BaseURL: baseURL}
 }
 
 // ShortenURL bertugas menerima URL panjang dan membalas URL pendek (POST)
@@ -100,7 +101,7 @@ func (h *URLHandler) ShortenURL(w http.ResponseWriter, r *http.Request) {
 
 	// 6. Siapkan balasan sukses
 	res := models.ShortenResponse{
-		ShortURL: "http://localhost:8000/" + shortCode,
+		ShortURL: h.BaseURL + "/" + shortCode,
 	}
 
 	// 7. Kirim balasan JSON ke user
