@@ -8,6 +8,16 @@ import FeaturesFooter from './components/FeaturesFooter'
 import StatsForm from './components/StatsForm'
 import StatsResultCard from './components/StatsResultCard'
 
+async function readError(response) {
+  const text = await response.text()
+  try {
+    const json = JSON.parse(text)
+    return json.error || text.trim()
+  } catch {
+    return text.trim() || response.statusText || 'Terjadi kesalahan pada server'
+  }
+}
+
 function App() {
   // State Navigasi
   const [activeTab, setActiveTab] = useState('shorten') // 'shorten' atau 'stats'
@@ -65,16 +75,24 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ long_url: longUrl.trim() })
       })
-      const data = await response.json()
 
-      if (response.ok && data.short_url) {
+      if (!response.ok) {
+        throw new Error(await readError(response))
+      }
+
+      const data = await response.json()
+      if (data.short_url) {
         setShortUrl(data.short_url)
         setLongUrl('')
       } else {
-        setErrorMsg(data.detail || 'Gagal memendekkan URL. Pastikan format tautan valid.')
+        setErrorMsg('Gagal memendekkan URL. Pastikan format tautan valid.')
       }
-    } catch {
-      setErrorMsg('Tidak dapat terhubung ke server. Pastikan backend aktif.')
+    } catch (err) {
+      setErrorMsg(
+        err.name === 'TypeError' || err.message === 'Failed to fetch'
+          ? 'Tidak dapat terhubung ke server. Pastikan backend aktif.'
+          : err.message
+      )
     } finally {
       setIsLoading(false)
     }
@@ -92,16 +110,20 @@ function App() {
     try {
       // Ambil kode unik jika user menempelkan full URL
       const code = statsInput.trim().split('/').filter(Boolean).pop()
-      
+
       const response = await fetch(`http://localhost:8000/stats/${code}`)
-      if (response.ok) {
-        const data = await response.json()
-        setStatsData(data)
-      } else {
-        setStatsError("Tautan pendek tidak ditemukan di database.")
+      if (!response.ok) {
+        throw new Error(await readError(response))
       }
-    } catch {
-      setStatsError("Tidak dapat terhubung ke server backend.")
+
+      const data = await response.json()
+      setStatsData(data)
+    } catch (err) {
+      setStatsError(
+        err.name === 'TypeError' || err.message === 'Failed to fetch'
+          ? 'Tidak dapat terhubung ke server backend.'
+          : err.message
+      )
     } finally {
       setIsStatsLoading(false)
     }
